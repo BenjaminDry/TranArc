@@ -1,0 +1,10 @@
+# Ignore compiled binaries
+*.exe
+*.out
+
+# Ignore IDE config
+**/.vscode/*
+**/.ideas/*
+
+# Ignore include path
+**/include/*
