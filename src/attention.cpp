@@ -13,7 +13,7 @@ public:
       keyProjection(inputSize, inputSize, 1.0, 1.0, 0),
       valueProjection(inputSize, inputSize, 1.0, 1.0, 0),
       outputProjection(inputSize, inputSize, 1.0, 1.0, 0),
-    numHeads(numHeads) {}
+      numHeads(numHeads) {}
 
     // Calculate output of the self attention layer
     Tensor3D feedForward(const Tensor3D& input) {
@@ -55,8 +55,7 @@ private:
         // Split tensors into multiple heads
         auto newShape = Eigen::array<Eigen::Index, 3>{
             queries.dimensions()[0],
-            queries.dimensions()[1] / numHeads,
-            numHeads
+            queries.dimensions()[1] / numHeads, numHeads
         };
 
         queries = queries.reshape(newShape);
@@ -67,8 +66,9 @@ private:
     // Comput the self attention of the input
     // This is not my code (smarter people created a smart solution)
     // The output tensor is computed by applying the self-attention mechanism
-    Tensor3D computeSelfAttention(const Tensor3D& queries, const Tensor3D& keys, const Tensor3D& values) {
+    Tensor3D computeSelfAttention(const Tensor3D& queries, const Tensor3D& keys, const Tensor3D& values, const Tensor3D& mask = Tensor3D()) {
         Tensor3D scores = queries.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)}).eval();
+        if (mask.size() != 0) {scores += mask;}  // Masking
         scores = scores.unaryExpr([&scores](float x) { return MathUtils::softmax(x, 2); });
         return scores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)}).eval();
     }

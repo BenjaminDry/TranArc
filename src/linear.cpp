@@ -24,7 +24,7 @@ public:
         int inputSize = input.dimension(2);
 
         MatrixXd inputMatrix = MathUtils::reshapeToMatrix(input);
-        MatrixXd outputMatrix = inputMatrix * weights + bias.replicate(batchSize * sequenceLength, 1);
+        MatrixXd outputMatrix = MathUtils::sigmoid(inputMatrix * weights + bias.replicate(batchSize * sequenceLength, 1));
         
         return MathUtils::reshapeToTensor(outputMatrix, batchSize, sequenceLength, weights.cols());
     }
