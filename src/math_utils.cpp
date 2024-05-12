@@ -75,4 +75,22 @@ namespace MathUtils {
         return result;
     }
 
+    // Normalise layer data
+    // LayerNorm(X) = gamma * (X - mean) / standard deviation + beta
+    // Where gamma and beta are learnable vector parameters
+    Tensor3D layerNormalisation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, float epsilon) {
+        Eigen::array<int, 1> featureDimension = {2};  // 2 Corresponds to feature dimension
+        Eigen::array<Eigen::Index, 1> dimensionSizeArray = {1};
+
+        Tensor3D mean = input.mean(featureDimension).reshape(dimensionSizeArray);
+        Tensor3D variance = ((input - mean.broadcast(input.dimensions())).square().mean(featureDimension)).reshape(dimensionSizeArray);
+
+        Tensor3D normalised = (input - mean.broadcast(input.dimensions())) / (variance.broadcast(input.dimensions()) + epsilon).sqrt();;
+
+        Tensor3D scaled = normalised * gamma.broadcast(input.dimensions());
+        Tensor3D shifted = scaled + beta.broadcast(input.dimensions());
+
+        return scaled;
+    }
+
 };   

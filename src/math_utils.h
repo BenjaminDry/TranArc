@@ -17,6 +17,7 @@ namespace MathUtils {
     float matrixClippingFactor(MatrixXd& gradient, float& clipNorm);
     MatrixXd reshapeToMatrix(const Tensor3D& tensor);
     Tensor3D reshapeToTensor(const MatrixXd& matrix, int dim1, int dim2, int dim3);
+    Tensor3D layerNormalisation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, float epsilon);
 };
 
 #endif
