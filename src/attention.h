@@ -11,7 +11,7 @@ using Tensor3D = Tensor<float, 3>;
 
 class SelfAttention {
 public:
-    SelfAttention(int inputSize, int numHeads);
+    SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int seed);
     Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask);
 
 private:

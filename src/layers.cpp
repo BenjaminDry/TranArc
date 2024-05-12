@@ -13,7 +13,7 @@ public:
     TransformerLayer(int numLayers, int inputSize, int outputSize, int numHeads, float learningRate, float clipNorm, int seed)
     : numLayers(numLayers), numHeads(numHeads), learningRate(learningRate), clipNorm(clipNorm) {
         for (int i = 0; i < numLayers; ++i) {
-            selfAttentions.push_back(SelfAttention(inputSize, numHeads));
+            selfAttentions.push_back(SelfAttention(inputSize, numHeads, learningRate, clipNorm, seed));
             linearProjections.push_back(LinearProjection(inputSize, outputSize, learningRate, clipNorm, seed));
         }
     }
@@ -78,7 +78,7 @@ public:
     mask(generateDecoderMask(inputSize)) {
         maskedSelfAttentions.reserve(numLayers);
         for (int i = 0; i < numLayers; ++i) {
-            maskedSelfAttentions.push_back(SelfAttention(inputSize, numHeads));
+            maskedSelfAttentions.push_back(SelfAttention(inputSize, numHeads, learningRate, clipNorm, seed));
         }
     }
 

@@ -8,11 +8,11 @@ using Tensor3D = Tensor<float, 3>;
 
 class SelfAttention {
 public:
-    SelfAttention(int inputSize, int numHeads)
-    : queryProjection(inputSize, inputSize, 1.0, 1.0, 0),
-      keyProjection(inputSize, inputSize, 1.0, 1.0, 0),
-      valueProjection(inputSize, inputSize, 1.0, 1.0, 0),
-      outputProjection(inputSize, inputSize, 1.0, 1.0, 0),
+    SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int seed)
+    : queryProjection(inputSize, inputSize, learningRate, clipNorm, seed),
+      keyProjection(inputSize, inputSize, learningRate, clipNorm, seed),
+      valueProjection(inputSize, inputSize, learningRate, clipNorm, seed),
+      outputProjection(inputSize, inputSize, learningRate, clipNorm, seed),
       numHeads(numHeads) {}
 
     // Calculate output of the self attention layer
