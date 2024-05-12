@@ -15,11 +15,11 @@ namespace MathUtils {
 
     // Compute softmax activation of 3D tensor
     Tensor3D softmax(const Tensor3D& x, int axis) {
-        Tensor3D expValues = (-x).exp();
-        Tensor3D sumExp = expValues.sum(axis);
+        Tensor3D xExp = (-x).exp();
+        Tensor3D sumExp = xExp.sum(axis);
         Eigen::array<Eigen::Index, 3> reshapedDims = {1, 1, x.dimension(axis)};
         sumExp = sumExp.reshape(reshapedDims);
-        return expValues / sumExp.broadcast(x.dimensions());
+        return xExp / sumExp.broadcast(xExp.dimensions());
     }
 
     // Compute weight matrix, using random seed

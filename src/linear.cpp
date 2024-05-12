@@ -42,9 +42,6 @@ public:
 
     // Projection layer parameter updating, using gradient clipping
     void updateParameters(const Tensor3D& input, const Tensor3D& error) {
-        int batchSize = input.dimension(0);
-        int sequenceLength = input.dimension(1);
-
         MatrixXd inputMatrix = MathUtils::reshapeToMatrix(input);
         MatrixXd errorMatrix = MathUtils::reshapeToMatrix(error);
 
@@ -53,6 +50,10 @@ public:
 
         weights -= learningRate * scaleFactor * weightsGradient;
         bias -= learningRate * scaleFactor * errorMatrix.colwise().sum();
+    }
+
+    MatrixXd getWeights() {
+        return weights;
     }
 
 private:
