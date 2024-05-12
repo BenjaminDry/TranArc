@@ -93,6 +93,21 @@ namespace MathUtils {
         return scaled;
     }
 
+    // Backpropagation of the layer normalisation method, might move out of the math utils
+    tuple<Tensor3D, Tensor3D, Tensor3D> layerNormalisationBackPropagation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, const Tensor3D& prevError, float epsilon) {
+        Eigen::array<int, 1> featureDimension = {2};  // 2 Corresponds to feature dimension (e.g. vocabulary index)
+
+        Tensor3D inverseStandardDeviation = (input.square().mean(featureDimension) + epsilon).sqrt().inverse();
+        Tensor3D shiftedGradient = prevError;
+        Tensor3D scaledGradient = shiftedGradient * gamma.broadcast(input.dimensions());
+        Tensor3D normalisedGradient = scaledGradient * inverseStandardDeviation.broadcast(input.dimensions());
+
+        Tensor3D gammaGradient = (prevError * input).sum(featureDimension);
+        Tensor3D betaGradient = prevError.sum(featureDimension);
+
+        return make_tuple(normalisedGradient, gammaGradient, betaGradient);
+    }
+
     // Function to merge a tensor object on the end of another tensor object
     Tensor3D concatenate(const Tensor3D& input1, const Tensor3D& input2) {
         std::array<int, 3> newDimensions = {
