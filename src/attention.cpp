@@ -16,12 +16,12 @@ public:
       numHeads(numHeads) {}
 
     // Calculate output of the self attention layer
-    Tensor3D feedForward(const Tensor3D& input) {
+    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask = Tensor3D()) {
         Tensor3D queries, keys, values;
         computeQKV(input, queries, keys, values);
 
         // Compute self-attention scores
-        Tensor3D attentionScores = computeSelfAttention(queries, keys, values);
+        Tensor3D attentionScores = computeSelfAttention(queries, keys, values, mask);
 
         // Apply the attention scores to values
         Tensor3D weightedValues = attentionScores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});

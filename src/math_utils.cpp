@@ -79,7 +79,7 @@ namespace MathUtils {
     // LayerNorm(X) = gamma * (X - mean) / standard deviation + beta
     // Where gamma and beta are learnable vector parameters
     Tensor3D layerNormalisation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, float epsilon) {
-        Eigen::array<int, 1> featureDimension = {2};  // 2 Corresponds to feature dimension
+        Eigen::array<int, 1> featureDimension = {2};  // 2 Corresponds to feature dimension (e.g. vocabulary index)
         Eigen::array<Eigen::Index, 1> dimensionSizeArray = {1};
 
         Tensor3D mean = input.mean(featureDimension).reshape(dimensionSizeArray);
@@ -93,4 +93,33 @@ namespace MathUtils {
         return scaled;
     }
 
+    // Function to merge a tensor object on the end of another tensor object
+    Tensor3D concatenate(const Tensor3D& input1, const Tensor3D& input2) {
+        std::array<int, 3> newDimensions = {
+            static_cast<int>(input1.dimension(0)),
+            static_cast<int>(input1.dimension(1)),
+            static_cast<int>(input1.dimension(2) + input2.dimension(2))
+        };
+        Tensor3D concatenated(newDimensions[0], newDimensions[1], newDimensions[2]);
+
+        // Copy data from input1
+        for (int i = 0; i < input1.dimension(0); ++i) {
+            for (int j = 0; j < input1.dimension(1); ++j) {
+                for (int k = 0; k < input1.dimension(2); ++k) {
+                    concatenated(i, j, k) = input1(i, j, k);
+                }
+            }
+        }
+
+        // Copy data from input2
+        for (int i = 0; i < input2.dimension(0); ++i) {
+            for (int j = 0; j < input2.dimension(1); ++j) {
+                for (int k = 0; k < input2.dimension(2); ++k) {
+                    concatenated(i, j, input1.dimension(2) + k) = input2(i, j, k);
+                }
+            }
+        }
+
+        return concatenated;
+    }
 };   

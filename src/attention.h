@@ -12,7 +12,7 @@ using Tensor3D = Tensor<float, 3>;
 class SelfAttention {
 public:
     SelfAttention(int inputSize, int numHeads);
-    Tensor3D feedForward(const Tensor3D& input);
+    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask);
 
 private:
     LinearProjection queryProjection;
@@ -20,7 +20,7 @@ private:
     LinearProjection valueProjection;
     int numHeads;
     LinearProjection outputProjection;
-    void computeQKV(const Tensor3D& input, Tensor3D& queries, Tensor3D& keys, Tensor3D& values, Tensor3D& mask);
+    void computeQKV(const Tensor3D& input, Tensor3D& queries, Tensor3D& keys, Tensor3D& values, const Tensor3D& mask);
     Tensor3D computeSelfAttention(const Tensor3D& queries, const Tensor3D& keys, const Tensor3D& values);
 };
 
