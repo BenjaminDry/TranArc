@@ -12,10 +12,19 @@ public:
     // Default constructor for each network division, intialises the self attention and linear projection layers
     TransformerLayer(int numLayers, int inputSize, int outputSize, int numHeads, float learningRate, float clipNorm, int seed)
     : numLayers(numLayers), numHeads(numHeads), learningRate(learningRate), clipNorm(clipNorm) {
+        // Linear projection and self attention layer initalisation
         for (int i = 0; i < numLayers; ++i) {
             selfAttentions.push_back(SelfAttention(inputSize, numHeads, learningRate, clipNorm, seed));
             linearProjections.push_back(LinearProjection(inputSize, outputSize, learningRate, clipNorm, seed));
         }
+
+        // Gamma intialisation (0.5 inital constant)
+        MatrixXd gammaMatrix = MatrixXd::Constant(numLayers * outputSize, 1, 0.5);
+        gamma = MathUtils::reshapeToTensor(gammaMatrix, numLayers, 1, outputSize);
+
+        // Beta intialisation (0.1 inital constant)
+        MatrixXd betaMatrix = MatrixXd::Constant(numLayers * outputSize, 1, 0.1);
+        beta = MathUtils::reshapeToTensor(betaMatrix, numLayers, 1, outputSize);
     }
 
     // Update the parameters of the layers
@@ -101,10 +110,19 @@ public:
     : TransformerLayer(numLayers, inputSize, outputSize, numHeads, learningRate, clipNorm, seed),
     outputProjection(outputSize, outputSize, learningRate, clipNorm, seed),
     mask(generateDecoderMask(inputSize)) {
+        // Masked self attention initialisation
         maskedSelfAttentions.reserve(numLayers);
         for (int i = 0; i < numLayers; ++i) {
             maskedSelfAttentions.push_back(SelfAttention(inputSize, numHeads, learningRate, clipNorm, seed));
         }
+
+        // Gamma2 intialisation (0.5 inital constant)
+        MatrixXd gammaMatrix = MatrixXd::Constant(numLayers * outputSize, 1, 0.5);
+        gamma2 = MathUtils::reshapeToTensor(gammaMatrix, numLayers, 1, outputSize);
+
+        // Beta2 intialisation (0.1 inital constant)
+        MatrixXd betaMatrix = MatrixXd::Constant(numLayers * outputSize, 1, 0.1);
+        beta2 = MathUtils::reshapeToTensor(betaMatrix, numLayers, 1, outputSize);
     }
 
     Tensor3D feedForward(const Tensor3D& input, const Tensor3D& encoderOutput) {
