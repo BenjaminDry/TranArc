@@ -19,7 +19,7 @@ public:
     }
 
     // Update the parameters of the layers
-    virtual void updateParameters() = 0;
+    virtual void updateParameters(const Tensor3D& error) = 0;
 
     // Update the gamma and beta tensor objects
     virtual void updateNormalisationParameters(const Tensor3D& gammaGradients, const Tensor3D& betaGradients) {
@@ -29,19 +29,30 @@ public:
         }
     }
 
+    // Update the gamma and beta tensor objects for a specific layer
+    virtual void updateNormalisationParameters(int layerIndex, const Tensor3D& gammaGradients, const Tensor3D& betaGradients) {
+        gamma.chip(layerIndex, 0) -= learningRate * gammaGradients.chip(layerIndex, 0);
+        beta.chip(layerIndex, 0) -= learningRate * betaGradients.chip(layerIndex, 0);
+    }
+
 protected:
+    // Internal projection and multihead attention layers
     vector<SelfAttention> selfAttentions;
     vector<LinearProjection> linearProjections;
 
+    // Normalisation learnable parameters
+    // Add a second set of these parameters to decoder as it goes through two layer normalisation steps?
     Tensor3D gamma;
     Tensor3D beta;
 
+    // Training config
     int numLayers;
     int numHeads;
     float learningRate;
     float clipNorm;
 
-    float epsilon = 1e-5; 
+    // Constant
+    const float epsilon = 1e-5; 
 };
 
 // Encoder layer of the transformer network
@@ -65,8 +76,22 @@ public:
         return output;
     }
 
-    void updateParameters() override {}
+    // Back propagation and subsequent updating of all encoder parameters
+    void updateParameters(const Tensor3D& error) override {
+        for (int i = numLayers - 1; i >= 0; --i) {
+            // Linear projection back propagation
+            Tensor3D linearError = linearProjections[i].backPropagation(error);
+            linearProjections[i].updateParameters(linearError);
+            
+            // Normalisation back propagation
+            Tensor3D attentionOutput = selfAttentions[i].getLayerOutput();
+            auto [normalisedError, gammaError, betaError] = MathUtils::layerNormalisationBackPropagation(attentionOutput, gamma, beta, linearError, epsilon);
+            updateNormalisationParameters(i, gammaError, betaError);
 
+            // Multihead attention back propagation
+            selfAttentions[i].backPropagation(linearError);
+        }
+    }
 };
 
 // Decoder layer of the transformer network
@@ -106,12 +131,49 @@ public:
         return output;
     }
 
-    void updateParameters() override {}
+    // Back propagation and subsequent updating of all decoder parameters
+    void updateParameters(const Tensor3D& error) override {
+        // Initialize error tensors for normalisation
+        Tensor3D normalisedError1, normalisedError2;
+        Tensor3D gammaError1, gammaError2;
+        Tensor3D betaError1, betaError2;
+
+        // Output projection back propagation
+        Tensor3D outputLinearError = outputProjection.backPropagation(error);
+        outputProjection.updateParameters(outputLinearError);
+
+        for (int i = numLayers - 1; i >= 0; --i) {
+            // Linear projection back propagation
+            Tensor3D linearError = linearProjections[i].backPropagation(outputLinearError);
+            linearProjections[i].updateParameters(linearError);
+
+            // Normalisation back propagation [2]
+            Tensor3D attentionOutput1 = selfAttentions[i].getLayerOutput();
+            tie(normalisedError1, gammaError1, betaError1) = MathUtils::layerNormalisationBackPropagation(attentionOutput1, gamma, beta, error, epsilon);
+            MathUtils::updateNormalisationParameters(gamma, beta, i, gammaError1, betaError1, learningRate);
+
+            // Multihead attention back propagation
+            selfAttentions[i].backPropagation(normalisedError1);
+
+            // Normalisation back propagation [1]
+            Tensor3D attentionOutput2 = selfAttentions[i].getLayerOutput();
+            tie(normalisedError2, gammaError2, betaError2) = MathUtils::layerNormalisationBackPropagation(attentionOutput2, gamma2, beta2, normalisedError1, epsilon);
+            MathUtils::updateNormalisationParameters(gamma2, beta2, i, gammaError2, betaError2, learningRate);
+
+            // Masked multihead attention back propagation
+            maskedSelfAttentions[i].backPropagation(normalisedError2);
+        }
+    }
 
 private:
+    // Decoder-specific layers
     vector<SelfAttention> maskedSelfAttentions;
     LinearProjection outputProjection;
     Tensor3D mask;
+
+    // Decoder extra normalisation values
+    Tensor3D gamma2;
+    Tensor3D beta2;
 
     // Compute the mask for the masked multiheader attention decoder layer
     Tensor3D generateDecoderMask(int inputSize) {
