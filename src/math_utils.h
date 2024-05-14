@@ -18,6 +18,8 @@ namespace MathUtils {
     MatrixXd reshapeToMatrix(const Tensor3D& tensor);
     Tensor3D reshapeToTensor(const MatrixXd& matrix, int dim1, int dim2, int dim3);
     Tensor3D layerNormalisation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, float epsilon);
+    tuple<Tensor3D, Tensor3D, Tensor3D> layerNormalisationBackPropagation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, const Tensor3D& prevError, float epsilon);
+    void updateNormalisationParameters(Tensor3D& gamma, Tensor3D& beta, int layerIndex, const Tensor3D& gammaGradients, const Tensor3D& betaGradients, float learningRate);
     Tensor3D concatenate(const Tensor3D& input1, const Tensor3D& input2);
 };
 

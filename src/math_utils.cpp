@@ -108,6 +108,12 @@ namespace MathUtils {
         return make_tuple(normalisedGradient, gammaGradient, betaGradient);
     }
 
+    // Function to update the normalization parameters for a given layer
+    void updateNormalisationParameters(Tensor3D& gamma, Tensor3D& beta, int layerIndex, const Tensor3D& gammaGradients, const Tensor3D& betaGradients, float learningRate) {
+        gamma.chip(layerIndex, 0) -= learningRate * gammaGradients.chip(layerIndex, 0);
+        beta.chip(layerIndex, 0) -= learningRate * betaGradients.chip(layerIndex, 0);
+    }
+
     // Function to merge a tensor object on the end of another tensor object
     Tensor3D concatenate(const Tensor3D& input1, const Tensor3D& input2) {
         std::array<int, 3> newDimensions = {
