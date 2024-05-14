@@ -17,7 +17,8 @@ public:
 
     // Calculate output of the self attention layer
     Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask = Tensor3D()) {
-        computeQKV(input);
+        layerInput = input;
+        computeQKV();
 
         // Compute self-attention scores
         Tensor3D attentionScores = computeSelfAttention(mask);
@@ -29,13 +30,13 @@ public:
         Tensor3D summedHeads = weightedValues.sum(Eigen::array<int, 1>{2});
 
         // Linear projection
-        Tensor3D output = outputProjection.feedForward(summedHeads);
-        return output;
+        layerOutput = outputProjection.feedForward(summedHeads);
+        return layerOutput;
     }
 
-    void backPropagation(const Tensor3D& input, const Tensor3D& prevError, const Tensor3D& mask = Tensor3D()) {
+    void backPropagation(const Tensor3D& prevError) {
         Tensor3D outputGradient = outputProjection.backPropagation(prevError);
-        outputProjection.updateParameters(summedHeads, prevError);
+        outputProjection.updateParameters(prevError);
 
         // Backpropagate through sum of heads
         Tensor3D weightedValuesGradient = prevError.broadcast(Eigen::array<int, 3>{1, 1, numHeads}); 
@@ -50,9 +51,14 @@ public:
         Tensor3D queriesGradient = keysGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
 
         // Update parameters (keeping it in the same function for simplicity)
-        valueProjection.updateParameters(input, valuesGradient);
-        keyProjection.updateParameters(input, keysGradient);
-        queryProjection.updateParameters(input, queriesGradient);
+        valueProjection.updateParameters(valuesGradient);
+        keyProjection.updateParameters(keysGradient);
+        queryProjection.updateParameters(queriesGradient);
+    }
+
+    // Bandage fix for layer normalisation back propagation
+    Tensor3D getLayerOutput() {
+        return layerOutput;
     }
 
 private:
@@ -73,11 +79,15 @@ private:
     // Final projection layer of the self attention mechanism
     LinearProjection outputProjection;
 
+    // IO Data storage
+    Tensor3D layerInput;
+    Tensor3D layerOutput;
+
     // Compute the queries, keys and values of the self attention
-    void computeQKV(const Tensor3D& input) {
-        queries = queryProjection.feedForward(input);
-        keys = keyProjection.feedForward(input);
-        values = valueProjection.feedForward(input);
+    void computeQKV() {
+        queries = queryProjection.feedForward(layerInput);
+        keys = keyProjection.feedForward(layerInput);
+        values = valueProjection.feedForward(layerInput);
 
         // Split tensors into multiple heads
         auto newShape = Eigen::array<Eigen::Index, 3>{

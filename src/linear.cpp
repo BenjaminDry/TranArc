@@ -19,6 +19,7 @@ public:
 
     // Compute layer output
     Tensor3D feedForward(const Tensor3D& input) {
+        layerInput = input;
         int batchSize = input.dimension(0);
         int sequenceLength = input.dimension(1);
         int inputSize = input.dimension(2);
@@ -26,7 +27,8 @@ public:
         MatrixXd inputMatrix = MathUtils::reshapeToMatrix(input);
         MatrixXd outputMatrix = MathUtils::sigmoid(inputMatrix * weights + bias.replicate(batchSize * sequenceLength, 1));
         
-        return MathUtils::reshapeToTensor(outputMatrix, batchSize, sequenceLength, weights.cols());
+        layerOutput = MathUtils::reshapeToTensor(outputMatrix, batchSize, sequenceLength, weights.cols());
+        return layerOutput;
     }
 
     // Compute error of the linear layer, based on previous layer error
@@ -41,8 +43,8 @@ public:
     }
 
     // Projection layer parameter updating, using gradient clipping
-    void updateParameters(const Tensor3D& input, const Tensor3D& error) {
-        MatrixXd inputMatrix = MathUtils::reshapeToMatrix(input);
+    void updateParameters(const Tensor3D& error) {
+        MatrixXd inputMatrix = MathUtils::reshapeToMatrix(layerInput);
         MatrixXd errorMatrix = MathUtils::reshapeToMatrix(error);
 
         MatrixXd weightsGradient = inputMatrix.transpose() * errorMatrix;
@@ -64,4 +66,8 @@ private:
     // Adjustable parameters
     MatrixXd weights;
     VectorXd bias;
+
+    // IO Data storage
+    Tensor3D layerInput;
+    Tensor3D layerOutput;
 };

@@ -15,7 +15,7 @@ public:
     LinearProjection(int inputSize, int outputSize, float learningRate, float clipNorm, int seed);
     Tensor3D feedForward(const Tensor3D& input);
     Tensor3D backPropagation(const Tensor3D& prevError);
-    void updateParameters(const Tensor3D& input, const Tensor3D& error);
+    void updateParameters(const Tensor3D& error);
     MatrixXd getWeights();
 
 private:
@@ -23,6 +23,8 @@ private:
     float clipNorm;
     MatrixXd weights;
     VectorXd bias;
+    Tensor3D layerInput;
+    Tensor3D layerOutput;
 };
 
 #endif

@@ -13,6 +13,8 @@ class SelfAttention {
 public:
     SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int seed);
     Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask);
+    void backPropagation(const Tensor3D& prevError);
+    Tensor3D getLayerOutput();
 
 private:
     LinearProjection queryProjection;
@@ -23,7 +25,9 @@ private:
     Tensor3D values;
     int numHeads;
     LinearProjection outputProjection;
-    void computeQKV(const Tensor3D& input);
+    Tensor3D layerInput;
+    Tensor3D layerOutput;
+    void computeQKV();
     Tensor3D computeSelfAttention(const Tensor3D& mask);
 };
 
