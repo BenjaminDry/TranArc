@@ -143,4 +143,27 @@ namespace MathUtils {
 
         return concatenated;
     }
+
+    // Compute categorial cross-entropy loss    
+    float categorialCrossEntropyLoss(const Tensor3D& prediction, const Tensor3D& target) {
+        float totalLoss = 0.0;
+
+        // Iterate over every element in the batch
+        for (int i = 0; i < prediction.dimension(0); ++i) {  // Batch dimension
+            for (int j = 0; j < prediction.dimension(1); ++j) {  // Sequence length dimension
+                for (int k = 0; k < prediction.dimension(2); ++k) {  // Vocabulary dimension
+                    float probability = prediction(i, j, k);
+                    int targetIndex = static_cast<int>(target(i, j, 0));
+                    totalLoss -= log(probability) * (k = targetIndex ? 1.0 : 0.0);
+                }
+            }
+        }
+
+        // Normalise loss
+        int numElements = prediction.size();
+        totalLoss /= numElements;
+
+        return totalLoss;
+    }
+
 };   
