@@ -33,7 +33,7 @@ public:
 
                 Tensor3D decoderError = decoderOutput - target;
                 decoder.updateParameters(decoderError);
-                Tensor3D encoderError;
+                Tensor3D encoderError = decoder.getEncoderError();
                 encoder.updateParameters(encoderError);
             }
             float averageLoss = totalLoss / inputSeq.size();
