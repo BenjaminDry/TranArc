@@ -6,5 +6,6 @@
 **/.vscode/*
 **/.ideas/*
 
-# Ignore include path
+# Ignore other directories
 **/include/*
+**/test/*
