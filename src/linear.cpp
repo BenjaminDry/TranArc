@@ -25,7 +25,7 @@ public:
         int inputSize = input.dimension(2);
 
         MatrixXd inputMatrix = MathUtils::reshapeToMatrix(input);
-        MatrixXd outputMatrix = MathUtils::sigmoid(inputMatrix * weights + bias.replicate(batchSize * sequenceLength, 1));
+        MatrixXd outputMatrix = (inputMatrix * weights + bias.replicate(batchSize * sequenceLength, 1)).cwiseMax(0);
         
         layerOutput = MathUtils::reshapeToTensor(outputMatrix, batchSize, sequenceLength, weights.cols());
         return layerOutput;
@@ -37,8 +37,11 @@ public:
         int sequenceLength = prevError.dimension(1);
         int outputSize = prevError.dimension(2);
 
+        // Calculates the derivative of the ReLU function
+        Tensor3D reluDerivative = layerInput.unaryExpr([](double x) { return (x > 0) ? 1.0 : 0.0; });
         MatrixXd errorMatrix = MathUtils::reshapeToMatrix(prevError);
-        MatrixXd inputErrorMatrix = errorMatrix * weights.transpose();
+        MatrixXd reluDerivativeMatrix = MathUtils::reshapeToMatrix(reluDerivative);
+        MatrixXd inputErrorMatrix = (errorMatrix.array() * reluDerivativeMatrix.array()).matrix();
         return MathUtils::reshapeToTensor(inputErrorMatrix, batchSize, sequenceLength, weights.rows());
     }
 
