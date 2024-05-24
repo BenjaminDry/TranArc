@@ -23,6 +23,7 @@ private:
     Tensor3D queries;
     Tensor3D keys;
     Tensor3D values;
+    Tensor3D mergedValues;
     int numHeads;
     LinearProjection outputProjection;
     Tensor3D layerInput;

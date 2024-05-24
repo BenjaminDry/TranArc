@@ -26,23 +26,24 @@ public:
         // Apply the attention scores to values
         Tensor3D weightedValues = attentionScores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});
 
-        // Sum all attention heads
-        Tensor3D summedHeads = weightedValues.sum(Eigen::array<int, 1>{2});
+        // Concatenate all attention heads
+        Tensor3D mergedValues = MathUtils::concatenate(weightedValues, values);
 
         // Linear projection
-        layerOutput = outputProjection.feedForward(summedHeads);
+        layerOutput = outputProjection.feedForward(mergedValues);
         return layerOutput;
     }
 
+    // Compute error of each section of the self attention layer and update parameters
     void backPropagation(const Tensor3D& prevError) {
         Tensor3D outputGradient = outputProjection.backPropagation(prevError);
         outputProjection.updateParameters(prevError);
 
-        // Backpropagate through sum of heads
-        Tensor3D weightedValuesGradient = prevError.broadcast(Eigen::array<int, 3>{1, 1, numHeads}); 
+        // Backpropagate through concatenated head
+        Tensor3D mergedValuesGradient = MathUtils::concatenate(prevError, outputGradient);
 
         // Backpropagate through attention scores to values
-        Tensor3D attentionScoresGradient = weightedValuesGradient.contract(outputProjection.getWeights(), Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});
+        Tensor3D attentionScoresGradient = mergedValuesGradient.contract(outputProjection.getWeights(), Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});
         attentionScoresGradient = attentionScoresGradient.unaryExpr([&attentionScoresGradient](float x) { return MathUtils::softmax(x, 2); });
 
         // Backpropagate through the self-attention scores
@@ -71,7 +72,7 @@ private:
     Tensor3D queries;
     Tensor3D keys;
     Tensor3D values;
-    Tensor3D summedHeads;
+    Tensor3D mergedValues;
 
     // Number of parallel attention mechanism
     int numHeads;
