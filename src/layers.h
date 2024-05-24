@@ -41,11 +41,14 @@ public:
     Decoder(int numLayers, int inputSize, int outputSize, int numHeads, float learningRate, float clipNorm, int seed);
     Tensor3D feedForward(const Tensor3D& input, const Tensor3D& encoderOutput);
     void updateParameters(const Tensor3D& error) override;
+    Tensor3D getEncoderError();
 
 private:
     vector<SelfAttention> maskedSelfAttentions;
     LinearProjection outputProjection;
     Tensor3D mask;
+    Tensor3D encoderError;
+    Tensor3D encoderOutput;
     Tensor3D generateDecoderMask(int inputSize);
 };
 

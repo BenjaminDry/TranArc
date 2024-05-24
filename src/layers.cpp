@@ -130,8 +130,9 @@ public:
         }
     }
 
-    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& encoderOutput) {
+    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& newEncoderOutput) {
         Tensor3D output = input;
+        encoderOutput = newEncoderOutput;
 
         for (int i = 0; i < numLayers; ++i) {
             // Masked self attention
@@ -188,6 +189,9 @@ public:
             // Multihead attention back propagation
             selfAttentions[i].backPropagation(normalisedError);
 
+            // Set encoder error value
+            encoderError = normalisedError;
+
             // Normalisation back propagation [1]
             Tensor3D maskedAttentionOutput = maskedSelfAttentions[i].getLayerOutput();
             tie(normalisedError, gammaError, betaError) = MathUtils::layerNormalisationBackPropagation(maskedAttentionOutput, gamma[0], beta[0], normalisedError, epsilon);
@@ -196,6 +200,15 @@ public:
             // Masked multihead attention back propagation
             maskedSelfAttentions[i].backPropagation(normalisedError);
         }
+        
+        // Compute the error for the encoder
+        encoderError.slice(Eigen::array<Eigen::Index, 1>({0}), Eigen::array<Eigen::Index, 1>({encoderOutput.dimension(1)}));
+    }
+
+    // Get the encoder error, bandage fix
+    // Possible: Add contributing error return to parent class
+    Tensor3D getEncoderError() {
+        return encoderError;
     }
 
 private:
@@ -203,6 +216,8 @@ private:
     vector<SelfAttention> maskedSelfAttentions;
     LinearProjection outputProjection;
     Tensor3D mask;
+    Tensor3D encoderError;
+    Tensor3D encoderOutput;
 
     // Compute the mask for the masked multiheader attention decoder layer
     Tensor3D generateDecoderMask(int inputSize) {
