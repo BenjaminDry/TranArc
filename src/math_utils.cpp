@@ -8,11 +8,6 @@ using namespace Eigen;
 using Tensor3D = Tensor<float, 3>;
 
 namespace MathUtils {
-    // Compute sigmoid activation
-    VectorXd sigmoid(const VectorXd& x) {
-        return 1.0 / (1 + (-x).array().exp());
-    };
-
     // Compute softmax activation of 3D tensor
     Tensor3D softmax(const Tensor3D& x, int axis) {
         Tensor3D xExp = (-x).exp();
@@ -173,7 +168,7 @@ namespace MathUtils {
 
         return concatenated;
     }
-    
+
     // Compute categorial cross-entropy loss    
     float categorialCrossEntropyLoss(const Tensor3D& prediction, const Tensor3D& target) {
         float totalLoss = 0.0;

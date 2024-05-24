@@ -11,7 +11,6 @@ using namespace Eigen;
 using Tensor3D = Tensor<float, 3>;
 
 namespace MathUtils {
-    VectorXd sigmoid(const VectorXd& x);
     Tensor3D softmax(const Tensor3D& x, int axis);
     void initialiseWeights(MatrixXd& weights, int& seed);
     float matrixClippingFactor(MatrixXd& gradient, float& clipNorm);
