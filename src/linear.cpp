@@ -54,8 +54,14 @@ public:
         bias -= learningRate * scaleFactor * errorMatrix.colwise().sum();
     }
 
+    // Bandage fix for weights extraction
     MatrixXd getWeights() {
         return weights;
+    }
+
+    // Bandage fix for ouput extraction
+    Tensor3D getOutput() {
+        return layerOutput;
     }
 
 private:

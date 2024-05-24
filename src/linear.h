@@ -17,6 +17,7 @@ public:
     Tensor3D backPropagation(const Tensor3D& prevError);
     void updateParameters(const Tensor3D& error);
     MatrixXd getWeights();
+    Tensor3D getOutput();
 
 private:
     float learningRate;
