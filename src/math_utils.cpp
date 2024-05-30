@@ -10,11 +10,18 @@ using Tensor3D = Tensor<float, 3>;
 namespace MathUtils {
     // Compute softmax activation of 3D tensor
     Tensor3D softmax(const Tensor3D& x, int axis) {
-        Tensor3D xExp = (-x).exp();
-        Tensor3D sumExp = xExp.sum(axis);
-        Eigen::array<Eigen::Index, 3> reshapedDims = {1, 1, x.dimension(axis)};
-        sumExp = sumExp.reshape(reshapedDims);
-        return xExp / sumExp.broadcast(xExp.dimensions());
+        Tensor3D xExp = x.exp();
+
+        // Calculate sum along axis
+        Eigen::array<int, 1> axes = {axis};
+        Tensor<float, 3> sumExp = xExp.sum(axes);
+
+        // Dimension reshaping for broadcast
+        Eigen::array<Eigen::Index, 3> reshapedDims = {1, 1, 1};
+        reshapedDims[axis] = sumExp.dimension(0);
+        Tensor<float, 3> sumExpReshaped = sumExp.reshape(reshapedDims);
+
+        return xExp / sumExpReshaped.broadcast(x.dimensions());
     }
 
     // Compute weight matrix, using random seed
