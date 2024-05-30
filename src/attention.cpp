@@ -42,13 +42,19 @@ public:
         // Backpropagate through concatenated head
         Tensor3D mergedValuesGradient = MathUtils::concatenate(prevError, outputGradient);
 
-        // Backpropagate through attention scores to values
-        Tensor3D attentionScoresGradient = mergedValuesGradient.contract(outputProjection.getWeights(), Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});
-        attentionScoresGradient = attentionScoresGradient.unaryExpr([&attentionScoresGradient](float x) { return MathUtils::softmax(x, 2); });
+        // Backpropagate through softmax function
+        Tensor3D softmaxAttentionScoresGradient(prevError.dimensions());
+        for (int i = 0; i < prevError.dimension(0); ++i) {
+            for (int j = 0; j < prevError.dimension(1); ++j) {
+                Tensor3D slice = prevError.chip(i, 0).chip(j, 0).reshape(Eigen::array<Eigen::Index, 2>{1, prevError.dimension(2)});
+                Tensor3D softmaxSlice = slice * (1.0 - slice);
+                softmaxAttentionScoresGradient.chip(i, 0).chip(j, 0) = softmaxSlice.reshape(Eigen::array<Eigen::Index, 3>{1, 1, prevError.dimension(2)});
+            }
+        }
 
         // Backpropagate through the self-attention scores
-        Tensor3D valuesGradient = attentionScoresGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)});
-        Tensor3D keysGradient = attentionScoresGradient.contract(values, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
+        Tensor3D valuesGradient = softmaxAttentionScoresGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)});
+        Tensor3D keysGradient = softmaxAttentionScoresGradient.contract(values, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
         Tensor3D queriesGradient = keysGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
 
         // Update parameters (keeping it in the same function for simplicity)
@@ -101,13 +107,13 @@ private:
         values = values.reshape(newShape);
     }
 
-    // Comput the self attention of the input
+    // Compute the self attention of the input
     // This is not my code (smarter people created a smart solution)
     // The output tensor is computed by applying the self-attention mechanism
     Tensor3D computeSelfAttention(const Tensor3D& mask = Tensor3D()) {
         Tensor3D scores = queries.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)}).eval();
-        if (mask.size() != 0) {scores += mask;}  // Masking
-        scores = scores.unaryExpr([&scores](float x) { return MathUtils::softmax(x, 2); });
+        if (mask.size() != 0) { scores += mask; }  // Masking
+        scores = MathUtils::softmax(scores, 2);
         return scores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)}).eval();
     }
 };
