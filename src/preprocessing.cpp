@@ -1,8 +1,14 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <map>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <nlohmann/json.hpp>
 
 using namespace std;
 using namespace Eigen;
+using json = nlohmann::json;
 
 using Tensor3D = Tensor<float, 3>;
 
@@ -31,7 +37,15 @@ namespace SequenceEncoding {
 namespace DataIO {
 
     // Load config file data
-    void loadConfig() {}
+    json loadConfig(const string& filePath) {
+        ifstream file(filePath);
+        json config;
+        if (file.is_open()) {
+            file >> config;
+            file.close();
+        }
+        return config;
+    }
 
     // Load training data
     void loadTrainingData() {}
