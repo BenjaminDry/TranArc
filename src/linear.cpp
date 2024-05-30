@@ -38,7 +38,7 @@ public:
         int outputSize = prevError.dimension(2);
 
         // Calculates the derivative of the ReLU function
-        Tensor3D reluDerivative = layerInput.unaryExpr([](double x) { return (x > 0) ? 1.0 : 0.0; });
+        Tensor3D reluDerivative = layerInput.unaryExpr([](float x) { return (x > 0.0f) ? 1.0f : 0.0f; });
         MatrixXd errorMatrix = MathUtils::reshapeToMatrix(prevError);
         MatrixXd reluDerivativeMatrix = MathUtils::reshapeToMatrix(reluDerivative);
         MatrixXd inputErrorMatrix = (errorMatrix.array() * reluDerivativeMatrix.array()).matrix();
