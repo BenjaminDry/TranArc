@@ -7,29 +7,30 @@
 
 using namespace Eigen;
 
-using Tensor3D = Tensor<float, 3>;
-
 class SelfAttention {
 public:
-    SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int seed);
-    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask);
+    SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int scalingFactor, int seed);
+    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask = Tensor3D());
     void backPropagation(const Tensor3D& prevError);
     Tensor3D getLayerOutput();
 
 private:
+    void computeQKV();
+    Tensor3D computeSelfAttention(const Tensor3D& mask);
     LinearProjection queryProjection;
     LinearProjection keyProjection;
     LinearProjection valueProjection;
     Tensor3D queries;
     Tensor3D keys;
     Tensor3D values;
-    Tensor3D mergedValues;
-    int numHeads;
-    LinearProjection outputProjection;
+    vector<Tensor3D> splitQueries;
+    vector<Tensor3D> splitKeys;
+    vector<Tensor3D> splitValues;
     Tensor3D layerInput;
     Tensor3D layerOutput;
-    void computeQKV();
-    Tensor3D computeSelfAttention(const Tensor3D& mask);
+    int numHeads;
+    int scalingFactor;
+    LinearProjection outputProjection;
 };
 
 #endif

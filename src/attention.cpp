@@ -1,119 +1,122 @@
-#include <Eigen/Dense>
-#include <unsupported/Eigen/CXX11/Tensor>
-#include "linear.h"
+#include "attention.h"
+#include "math_utils.h"
 
 using namespace Eigen;
 
 using Tensor3D = Tensor<float, 3>;
 
-class SelfAttention {
-public:
-    SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int seed)
+SelfAttention::SelfAttention(int inputSize, int numHeads, float learningRate, float clipNorm, int scalingFactor, int seed)
     : queryProjection(inputSize, inputSize, learningRate, clipNorm, seed),
       keyProjection(inputSize, inputSize, learningRate, clipNorm, seed),
       valueProjection(inputSize, inputSize, learningRate, clipNorm, seed),
       outputProjection(inputSize, inputSize, learningRate, clipNorm, seed),
       numHeads(numHeads) {}
 
-    // Calculate output of the self attention layer
-    Tensor3D feedForward(const Tensor3D& input, const Tensor3D& mask = Tensor3D()) {
-        layerInput = input;
-        computeQKV();
+Tensor3D SelfAttention::feedForward(const Tensor3D& input, const Tensor3D& mask) {
+    layerInput = input;
+    computeQKV();
 
-        // Compute self-attention scores
-        Tensor3D attentionScores = computeSelfAttention(mask);
+    // Compute self-attention scores
+    Tensor3D attentionScores = computeSelfAttention(mask);  // IMPORTANT: Logic error that causes a NaN tensor
 
-        // Apply the attention scores to values
-        Tensor3D weightedValues = attentionScores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)});
+    // Linear projection
+    layerOutput = outputProjection.feedForward(attentionScores);
+    return layerOutput;
+}
 
-        // Concatenate all attention heads
-        Tensor3D mergedValues = MathUtils::concatenate(weightedValues, values);
+void SelfAttention::backPropagation(const Tensor3D& prevError) {
+    Tensor3D outputGradient = outputProjection.backPropagation(prevError);
+    outputProjection.updateParameters(prevError);
 
-        // Linear projection
-        layerOutput = outputProjection.feedForward(mergedValues);
-        return layerOutput;
+    // Backpropagate through concatenated head
+    Tensor3D mergedValuesGradient = MathUtils::concatenate(prevError, outputGradient);
+
+    // Backpropagate through softmax function
+    Tensor3D softmaxAttentionScoresGradient(prevError.dimensions());
+    for (int i = 0; i < prevError.dimension(0); ++i) {
+        for (int j = 0; j < prevError.dimension(1); ++j) {
+            Tensor3D slice = prevError.chip(i, 0).chip(j, 0).reshape(Eigen::array<Eigen::Index, 2>{1, prevError.dimension(2)});
+            Tensor3D softmaxSlice = slice * (1.0 - slice);
+            softmaxAttentionScoresGradient.chip(i, 0).chip(j, 0) = softmaxSlice.reshape(Eigen::array<Eigen::Index, 3>{1, 1, prevError.dimension(2)});
+        }
     }
 
-    // Compute error of each section of the self attention layer and update parameters
-    void backPropagation(const Tensor3D& prevError) {
-        Tensor3D outputGradient = outputProjection.backPropagation(prevError);
-        outputProjection.updateParameters(prevError);
+    // Backpropagate through the self-attention scores
+    Tensor3D valuesGradient = softmaxAttentionScoresGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)});
+    Tensor3D keysGradient = softmaxAttentionScoresGradient.contract(values, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
+    Tensor3D queriesGradient = keysGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
 
-        // Backpropagate through concatenated head
-        Tensor3D mergedValuesGradient = MathUtils::concatenate(prevError, outputGradient);
+    // Update parameters (keeping it in the same function for simplicity)
+    valueProjection.updateParameters(valuesGradient);
+    keyProjection.updateParameters(keysGradient);
+    queryProjection.updateParameters(queriesGradient);
+}
 
-        // Backpropagate through softmax function
-        Tensor3D softmaxAttentionScoresGradient(prevError.dimensions());
-        for (int i = 0; i < prevError.dimension(0); ++i) {
-            for (int j = 0; j < prevError.dimension(1); ++j) {
-                Tensor3D slice = prevError.chip(i, 0).chip(j, 0).reshape(Eigen::array<Eigen::Index, 2>{1, prevError.dimension(2)});
-                Tensor3D softmaxSlice = slice * (1.0 - slice);
-                softmaxAttentionScoresGradient.chip(i, 0).chip(j, 0) = softmaxSlice.reshape(Eigen::array<Eigen::Index, 3>{1, 1, prevError.dimension(2)});
-            }
+Tensor3D SelfAttention::getLayerOutput() {
+    return layerOutput;
+}
+
+void SelfAttention::computeQKV() {
+    // Linear projection layer
+    queries = queryProjection.feedForward(layerInput);
+    keys = keyProjection.feedForward(layerInput);
+    values = valueProjection.feedForward(layerInput);
+
+    splitQueries.clear();
+    splitKeys.clear();
+    splitValues.clear();
+
+    int totalSize = queries.dimension(2);  // Consider the last dimension
+    int headSize = totalSize / numHeads;
+
+    // Split into heads
+    for (int i = 0; i < numHeads; ++i) {
+        Eigen::array<Eigen::Index, 3> startIndices = {0, 0, i * headSize};  // Adjust the start indices
+        Eigen::array<Eigen::Index, 3> sizes = {queries.dimension(0), queries.dimension(1), headSize};
+
+        Tensor3D slicedQueries = queries.slice(startIndices, sizes);
+        Tensor3D slicedKeys = keys.slice(startIndices, sizes);
+        Tensor3D slicedValues = values.slice(startIndices, sizes);
+
+        splitQueries.push_back(slicedQueries);
+        splitKeys.push_back(slicedKeys);
+        splitValues.push_back(slicedValues);
+    }
+}
+
+Tensor3D SelfAttention::computeSelfAttention(const Tensor3D& mask) {
+    int headSize = queries.dimension(1) / numHeads; 
+    Tensor3D concatenatedAttention(layerInput.dimension(0), layerInput.dimension(1), queries.dimension(2));
+
+    for (int i = 0; i < numHeads; ++i) {
+        // TODO: Make a universial variable type! double or float!
+        // Convert tensors to matrices
+        MatrixXf queriesMatrix = MathUtils::reshapeToMatrix(splitQueries[i]).cast<float>();
+        MatrixXf keysMatrix = MathUtils::reshapeToMatrix(splitKeys[i]).cast<float>();
+        MatrixXf valuesMatrix = MathUtils::reshapeToMatrix(splitValues[i]).cast<float>();
+
+        // Compute attention scores using matrix multiplication
+        MatrixXf scoresMatrix = (queriesMatrix.transpose() * keysMatrix);  // Redo back propagation?
+        scoresMatrix /= (1.0 * sqrt(headSize) * scalingFactor);
+        
+        // Apply mask (if provided), this might be cause of future error
+        if (mask.size() != 0) {
+            cout << "masking" << endl;
+            MatrixXf maskMatrix = MathUtils::reshapeToMatrix(mask).cast<float>();  // I hate casting to float
+            scoresMatrix += maskMatrix;
         }
 
-        // Backpropagate through the self-attention scores
-        Tensor3D valuesGradient = softmaxAttentionScoresGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)});
-        Tensor3D keysGradient = softmaxAttentionScoresGradient.contract(values, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
-        Tensor3D queriesGradient = keysGradient.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(2, 1)});
+        // Matrix based softmax activation
+        MatrixXf scoresMatrixExp = scoresMatrix.array().exp();
+        VectorXf sumScoresExp = scoresMatrixExp.rowwise().sum();
+        scoresMatrix = scoresMatrixExp.array().colwise() / sumScoresExp.array();
 
-        // Update parameters (keeping it in the same function for simplicity)
-        valueProjection.updateParameters(valuesGradient);
-        keyProjection.updateParameters(keysGradient);
-        queryProjection.updateParameters(queriesGradient);
+        // Compute final attention output using matrix multiplication
+        MatrixXf attentionMatrix = scoresMatrix * valuesMatrix.transpose();
+
+        // Copy the attention output back to the tensor
+        TensorMap<Tensor3D> attentionTensor(attentionMatrix.data(), 1, headSize, attentionMatrix.cols());
+        concatenatedAttention.slice(Eigen::array<Index, 3>({0, i * headSize, 0}), Eigen::array<Index, 3>({1, headSize, attentionMatrix.cols()})) = attentionTensor;
     }
-
-    // Bandage fix for layer normalisation back propagation
-    Tensor3D getLayerOutput() {
-        return layerOutput;
-    }
-
-private:
-    // Projection layers for dividing input into main data streams
-    LinearProjection queryProjection;
-    LinearProjection keyProjection;
-    LinearProjection valueProjection;
-
-    // Storing QKV's
-    Tensor3D queries;
-    Tensor3D keys;
-    Tensor3D values;
-    Tensor3D mergedValues;
-
-    // Number of parallel attention mechanism
-    int numHeads;
-
-    // Final projection layer of the self attention mechanism
-    LinearProjection outputProjection;
-
-    // IO Data storage
-    Tensor3D layerInput;
-    Tensor3D layerOutput;
-
-    // Compute the queries, keys and values of the self attention
-    void computeQKV() {
-        queries = queryProjection.feedForward(layerInput);
-        keys = keyProjection.feedForward(layerInput);
-        values = valueProjection.feedForward(layerInput);
-
-        // Split tensors into multiple heads
-        auto newShape = Eigen::array<Eigen::Index, 3>{
-            queries.dimensions()[0],
-            queries.dimensions()[1] / numHeads, numHeads
-        };
-
-        queries = queries.reshape(newShape);
-        keys = keys.reshape(newShape);
-        values = values.reshape(newShape);
-    }
-
-    // Compute the self attention of the input
-    // This is not my code (smarter people created a smart solution)
-    // The output tensor is computed by applying the self-attention mechanism
-    Tensor3D computeSelfAttention(const Tensor3D& mask = Tensor3D()) {
-        Tensor3D scores = queries.contract(keys, Eigen::array<IndexPair<long>, 1>{IndexPair<long>(1, 2)}).eval();
-        if (mask.size() != 0) { scores += mask; }  // Masking
-        scores = MathUtils::softmax(scores, 2);
-        return scores.contract(values, Eigen::array<IndexPair<long>, 2>{IndexPair<long>(2, 1)}).eval();
-    }
-};
+    return concatenatedAttention;
+}
