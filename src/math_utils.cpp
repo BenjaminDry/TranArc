@@ -1,6 +1,7 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <random>
+#include "math_utils.h"
 
 using namespace std;
 using namespace Eigen;
@@ -8,20 +9,10 @@ using namespace Eigen;
 using Tensor3D = Tensor<float, 3>;
 
 namespace MathUtils {
-    // Compute softmax activation of 3D tensor
-    Tensor3D softmax(const Tensor3D& x, int axis) {
-        Tensor3D xExp = x.exp();
-
-        // Calculate sum along axis
-        Eigen::array<int, 1> axes = {axis};
-        Tensor<float, 3> sumExp = xExp.sum(axes);
-
-        // Dimension reshaping for broadcast
-        Eigen::array<Eigen::Index, 3> reshapedDims = {1, 1, 1};
-        reshapedDims[axis] = sumExp.dimension(0);
-        Tensor<float, 3> sumExpReshaped = sumExp.reshape(reshapedDims);
-
-        return xExp / sumExpReshaped.broadcast(x.dimensions());
+    // Compute softmax activation of Tensor3D
+    Tensor3D softmax(const Tensor3D& x) {
+        return x.exp();
+        // re-implement
     }
 
     // Compute weight matrix, using random seed
@@ -79,18 +70,16 @@ namespace MathUtils {
 
     // Normalise layer data
     // LayerNorm(X) = gamma * (X - mean) / standard deviation + beta
-    // Where gamma and beta are learnable vector parameters
     Tensor3D layerNormalisation(const Tensor3D& input, const Tensor3D& gamma, const Tensor3D& beta, float epsilon) {
         Eigen::array<int, 1> featureDimension = {2};  // 2 Corresponds to feature dimension (e.g. vocabulary index)
-        Eigen::array<Eigen::Index, 1> dimensionSizeArray = {1};
+        Eigen::array<Eigen::Index, 1> dimensionSizeArray = {input.dimension(2)};
 
-        Tensor3D mean = input.mean(featureDimension).reshape(dimensionSizeArray);
-        Tensor3D variance = ((input - mean.broadcast(input.dimensions())).square().mean(featureDimension)).reshape(dimensionSizeArray);
-
-        Tensor3D normalised = (input - mean.broadcast(input.dimensions())) / (variance.broadcast(input.dimensions()) + epsilon).sqrt();;
-
-        Tensor3D scaled = normalised * gamma.broadcast(input.dimensions());
-        Tensor3D shifted = scaled + beta.broadcast(input.dimensions());
+        auto mean = input.mean(featureDimension);  // IMPORTANT: This function is not working
+        mean.reshape(dimensionSizeArray);
+        auto variance = ((input - mean.broadcast(input.dimensions())).square().mean(featureDimension)).reshape(dimensionSizeArray);
+        auto normalised = (input - mean.broadcast(input.dimensions())) / (variance.broadcast(input.dimensions()) + epsilon).sqrt();
+        auto scaled = normalised * gamma.broadcast(input.dimensions());
+        auto shifted = scaled + beta.broadcast(input.dimensions());
 
         return scaled;
     }
