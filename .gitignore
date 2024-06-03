@@ -1,6 +1,7 @@
 # Ignore compiled binaries
 *.exe
 *.out
+*.o
 
 # Ignore IDE config
 **/.vscode/*
@@ -9,3 +10,5 @@
 # Ignore other directories
 **/include/*
 **/test/*
+**/config/*
+**/data/*
