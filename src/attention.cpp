@@ -17,7 +17,7 @@ Tensor3D SelfAttention::feedForward(const Tensor3D& input, const Tensor3D& mask)
     computeQKV();
 
     // Compute self-attention scores
-    Tensor3D attentionScores = computeSelfAttention(mask);  // IMPORTANT: Logic error that causes a NaN tensor
+    Tensor3D attentionScores = computeSelfAttention(mask);
 
     // Linear projection
     layerOutput = outputProjection.feedForward(attentionScores);
@@ -96,8 +96,10 @@ Tensor3D SelfAttention::computeSelfAttention(const Tensor3D& mask) {
         MatrixXf valuesMatrix = MathUtils::reshapeToMatrix(splitValues[i]).cast<float>();
 
         // Compute attention scores using matrix multiplication
-        MatrixXf scoresMatrix = (queriesMatrix.transpose() * keysMatrix);  // Redo back propagation?
-        scoresMatrix /= (1.0 * sqrt(headSize) * scalingFactor);
+        MatrixXf scoresMatrix = queriesMatrix.transpose() * keysMatrix;
+        int scaling = sqrt(headSize) * scalingFactor;  // Redo back propagation?
+        scoresMatrix /= scaling;  // Change the scaling this shit volatile as fuck like fucking stop ahhahhahfhhfsdhzhahashahhahahsdghasgfasdzfgh 
+        cout << scoresMatrix << endl;
         
         // Apply mask (if provided), this might be cause of future error
         if (mask.size() != 0) {
@@ -108,8 +110,8 @@ Tensor3D SelfAttention::computeSelfAttention(const Tensor3D& mask) {
 
         // Matrix based softmax activation
         MatrixXf scoresMatrixExp = scoresMatrix.array().exp();
-        VectorXf sumScoresExp = scoresMatrixExp.rowwise().sum();
-        scoresMatrix = scoresMatrixExp.array().colwise() / sumScoresExp.array();
+        float sumScoresExp = scoresMatrixExp.sum();
+        scoresMatrix = scoresMatrixExp.array() / sumScoresExp;
 
         // Compute final attention output using matrix multiplication
         MatrixXf attentionMatrix = scoresMatrix * valuesMatrix.transpose();
